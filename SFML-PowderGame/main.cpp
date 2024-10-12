@@ -14,6 +14,7 @@
 
 #include "ThreadPool.h"
 
+//Main.cpp
 
 #define M_PI 3.14159265358979323846
 
@@ -24,6 +25,7 @@ const bool FULLSCREEN = false;
 const float GRAVITY = 0.1f; // gravity
 const float MAX_VELOCITY = 3.0f; // terminal velocity
 
+bool paused = false;
 
 const int cellSize = 2;
 const int gridWidth = WIDTH / cellSize;
@@ -148,6 +150,9 @@ void checkClick(sf::Mouse::Button buttonCode, int x, int y, int blobSize, int ce
 						if (rand() % 40 == 0 && MAT == SAND && blobSize > 2) {
 							grid[newX][newY] = createSandParticle();
 						}
+						if (MAT == SAND && blobSize <= 2) {
+							grid[newX][newY] = createSandParticle();
+						}
 						else if (rand() % 14 == 0 && blobSize > 2 && MAT != SAND) {
 							grid[newX][newY].type = MAT;
 						}
@@ -220,115 +225,118 @@ std::string toString(int fps) {
 std::vector<std::pair<int, int>> activeParticles;
 
 void simulateColumn(int startColumn, int endColumn, bool gridChanged[gridWidth][gridHeight]) {
-	for (int i = startColumn; i < endColumn; i++) {
-		for (int j = gridHeight - 2; j >= 0; j--) {
-			int currentType = grid[i][j].type;
+	if (!paused) {
+		for (int i = startColumn; i < endColumn; i++) {
+			for (int j = gridHeight - 2; j >= 0; j--) {
+				int currentType = grid[i][j].type;
 
-			// Skip inactive cells or cells that are air (nothing to simulate)
-			if (currentType == AIR) continue;
+				// Skip inactive cells or cells that are air (nothing to simulate)
+				if (currentType == AIR) continue;
 
-			int belowType = grid[i][j + 1].type;
+				int belowType = grid[i][j + 1].type;
 
-			// Sand logic
-			if (currentType == SAND) {
-				if (belowType == AIR) {
-					// Move sand down
-					grid[i][j + 1].type = SAND;
-					grid[i][j + 1].color = grid[i][j].color;
-					grid[i][j].type = AIR;
-					gridChanged[i][j] = true;         // Mark current cell as changed
-					gridChanged[i][j + 1] = true;     // Mark new position as changed
-				}
-				else if (i > 0 && grid[i - 1][j + 1].type == AIR) {
-					// Move sand down-left
-					grid[i - 1][j + 1].type = SAND;
-					grid[i - 1][j + 1].color = grid[i][j].color;
-					grid[i][j].type = AIR;
-					gridChanged[i][j] = true;
-					gridChanged[i - 1][j + 1] = true;
-				}
-				else if (i < gridWidth - 1 && grid[i + 1][j + 1].type == AIR) {
-					// Move sand down-right
-					grid[i + 1][j + 1].type = SAND;
-					grid[i + 1][j + 1].color = grid[i][j].color;
-					grid[i][j].type = AIR;
-					gridChanged[i][j] = true;
-					gridChanged[i + 1][j + 1] = true;
-				}
-			}
-
-			// Water logic
-			else if (currentType == WATER) {
-				int direction = rand() % 2; // Randomly pick direction for diagonal movement
-
-				if (belowType == AIR) {
-					// Move water down
-					grid[i][j + 1].type = WATER;
-					grid[i][j + 1].color = grid[i][j].color;
-					grid[i][j].type = AIR;
-					gridChanged[i][j] = true;
-					gridChanged[i][j + 1] = true;
-				}
-				else if (direction == 0 && i > 0 && grid[i - 1][j + 1].type == AIR) {
-					// Move water down-left
-					grid[i - 1][j + 1].type = WATER;
-					grid[i - 1][j + 1].color = grid[i][j].color;
-					grid[i][j].type = AIR;
-					gridChanged[i][j] = true;
-					gridChanged[i - 1][j + 1] = true;
-				}
-				else if (direction == 1 && i < gridWidth - 1 && grid[i + 1][j + 1].type == AIR) {
-					// Move water down-right
-					grid[i + 1][j + 1].type = WATER;
-					grid[i + 1][j + 1].color = grid[i][j].color;
-					grid[i][j].type = AIR;
-					gridChanged[i][j] = true;
-					gridChanged[i + 1][j + 1] = true;
-				}
-				else if (direction == 0 && i > 0 && grid[i - 1][j].type == AIR) {
-					// Spread water left
-					grid[i - 1][j].type = WATER;
-					grid[i - 1][j].color = grid[i][j].color;
-					grid[i][j].type = AIR;
-					gridChanged[i][j] = true;
-					gridChanged[i - 1][j] = true;
-				}
-				else if (direction == 1 && i < gridWidth - 1 && grid[i + 1][j].type == AIR) {
-					// Spread water right
-					grid[i + 1][j].type = WATER;
-					grid[i + 1][j].color = grid[i][j].color;
-					grid[i][j].type = AIR;
-					gridChanged[i][j] = true;
-					gridChanged[i + 1][j] = true;
-				}
-			}
-
-			// Poison logic (same logic, add gridChanged updates)
-			else if (currentType == POISON) {
-				if (j + 1 < gridHeight && grid[i][j + 1].type == AIR) {
-					grid[i][j + 1].type = POISON;
-					grid[i][j].type = AIR;
-					gridChanged[i][j] = true;
-					gridChanged[i][j + 1] = true;
-				}
-				else if (j + 1 < gridHeight && grid[i][j + 1].type != AIR) {
-					grid[i][j + 1].type = AIR;
-					gridChanged[i][j + 1] = true;
-					gridChanged[i][j] = true;
-				}
-				else {
-					int direction = rand() % 2;
-					if (direction == 0 && i > 0 && j + 1 < gridHeight && grid[i - 1][j + 1].type == AIR) {
-						grid[i - 1][j + 1].type = POISON;
+				// Sand logic
+				if (currentType == SAND) {
+					if (belowType == AIR) {
+						// Move sand down
+						grid[i][j + 1].type = SAND;
+						grid[i][j + 1].color = grid[i][j].color;
+						grid[i][j].type = AIR;
+						gridChanged[i][j] = true;         // Mark current cell as changed
+						gridChanged[i][j + 1] = true;     // Mark new position as changed
+					}
+					else if (i > 0 && grid[i - 1][j + 1].type == AIR) {
+						// Move sand down-left
+						grid[i - 1][j + 1].type = SAND;
+						grid[i - 1][j + 1].color = grid[i][j].color;
 						grid[i][j].type = AIR;
 						gridChanged[i][j] = true;
 						gridChanged[i - 1][j + 1] = true;
 					}
-					else if (direction == 1 && i < gridWidth - 1 && j + 1 < gridHeight && grid[i + 1][j + 1].type == AIR) {
-						grid[i + 1][j + 1].type = POISON;
+					else if (i < gridWidth - 1 && grid[i + 1][j + 1].type == AIR) {
+						// Move sand down-right
+						grid[i + 1][j + 1].type = SAND;
+						grid[i + 1][j + 1].color = grid[i][j].color;
 						grid[i][j].type = AIR;
 						gridChanged[i][j] = true;
 						gridChanged[i + 1][j + 1] = true;
+					}
+
+				}
+
+				// Water logic
+				else if (currentType == WATER) {
+					int direction = rand() % 2; // Randomly pick direction for diagonal movement
+
+					if (belowType == AIR) {
+						// Move water down
+						grid[i][j + 1].type = WATER;
+						grid[i][j + 1].color = grid[i][j].color;
+						grid[i][j].type = AIR;
+						gridChanged[i][j] = true;
+						gridChanged[i][j + 1] = true;
+					}
+					else if (direction == 0 && i > 0 && grid[i - 1][j + 1].type == AIR) {
+						// Move water down-left
+						grid[i - 1][j + 1].type = WATER;
+						grid[i - 1][j + 1].color = grid[i][j].color;
+						grid[i][j].type = AIR;
+						gridChanged[i][j] = true;
+						gridChanged[i - 1][j + 1] = true;
+					}
+					else if (direction == 1 && i < gridWidth - 1 && grid[i + 1][j + 1].type == AIR) {
+						// Move water down-right
+						grid[i + 1][j + 1].type = WATER;
+						grid[i + 1][j + 1].color = grid[i][j].color;
+						grid[i][j].type = AIR;
+						gridChanged[i][j] = true;
+						gridChanged[i + 1][j + 1] = true;
+					}
+					else if (direction == 0 && i > 0 && grid[i - 1][j].type == AIR) {
+						// Spread water left
+						grid[i - 1][j].type = WATER;
+						grid[i - 1][j].color = grid[i][j].color;
+						grid[i][j].type = AIR;
+						gridChanged[i][j] = true;
+						gridChanged[i - 1][j] = true;
+					}
+					else if (direction == 1 && i < gridWidth - 1 && grid[i + 1][j].type == AIR) {
+						// Spread water right
+						grid[i + 1][j].type = WATER;
+						grid[i + 1][j].color = grid[i][j].color;
+						grid[i][j].type = AIR;
+						gridChanged[i][j] = true;
+						gridChanged[i + 1][j] = true;
+					}
+				}
+
+				// Poison logic (same logic, add gridChanged updates)
+				else if (currentType == POISON) {
+					if (j + 1 < gridHeight && grid[i][j + 1].type == AIR) {
+						grid[i][j + 1].type = POISON;
+						grid[i][j].type = AIR;
+						gridChanged[i][j] = true;
+						gridChanged[i][j + 1] = true;
+					}
+					else if (j + 1 < gridHeight && grid[i][j + 1].type != AIR) {
+						grid[i][j + 1].type = AIR;
+						gridChanged[i][j + 1] = true;
+						gridChanged[i][j] = true;
+					}
+					else {
+						int direction = rand() % 2;
+						if (direction == 0 && i > 0 && j + 1 < gridHeight && grid[i - 1][j + 1].type == AIR) {
+							grid[i - 1][j + 1].type = POISON;
+							grid[i][j].type = AIR;
+							gridChanged[i][j] = true;
+							gridChanged[i - 1][j + 1] = true;
+						}
+						else if (direction == 1 && i < gridWidth - 1 && j + 1 < gridHeight && grid[i + 1][j + 1].type == AIR) {
+							grid[i + 1][j + 1].type = POISON;
+							grid[i][j].type = AIR;
+							gridChanged[i][j] = true;
+							gridChanged[i + 1][j + 1] = true;
+						}
 					}
 				}
 			}
@@ -491,7 +499,13 @@ int main()
 					blobEvent = true;
 				}
 			}
+			if (event.type == sf::Event::KeyPressed && event.key.code == sf::Keyboard::Space) {
+					std::cout << "Paused Game" << std::endl;
+					paused = !paused;
+			}
         }
+
+		
 
 		particleCount = countActiveParticles(grid);
 

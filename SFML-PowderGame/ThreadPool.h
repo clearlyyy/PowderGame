@@ -6,6 +6,8 @@
 #include <condition_variable>
 #include <functional>
 
+//ThreadPool.h, class for managing multiple threads.
+
 class ThreadPool {
 public:
     ThreadPool(size_t numThreads);
